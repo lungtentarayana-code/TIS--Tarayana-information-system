@@ -1,0 +1,259 @@
+import { useNavigate, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { ChevronLeft } from "lucide-react";
+
+const DetailEvent = () => {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  const [innerData, setInnerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchEventDetails = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await fetch(`${API_URL}/api/annual-event/event/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+          console.error(result.message);
+          return;
+        }
+
+        const raw = result.data || result;
+
+        const data =
+          Array.isArray(raw) && raw.length > 0
+            ? raw[0].data
+            : raw?.data || raw;
+
+        setInnerData(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) fetchEventDetails();
+  }, [id, API_URL]);
+
+
+  if (loading)
+    return <div className="p-6 text-center text-gray-400">Loading...</div>;
+
+  if (!innerData)
+    return <div className="p-6 text-center text-gray-400">No Data Found</div>;
+
+  // Global ignore list for database metadata
+  const systemKeys = ["_id", "__v", "createdAt", "updatedAt"];
+
+  // Helper to accurately format values or handle alternative date string formats
+  const formatValue = (key, value) => {
+    if (value == null) return "-";
+    if (typeof value === "string" && key.toLowerCase().includes("date") && value.includes("-")) {
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString("en-GB"); // Renders as DD/MM/YYYY
+      }
+    }
+    return String(value);
+  };
+
+  // 1. Separate flat key-value pairs dynamically (Theme, Date, Member counts, etc.)
+  const simpleFields = Object.entries(innerData).filter(
+    ([key, value]) => !systemKeys.includes(key) && typeof value !== "object" && !Array.isArray(value)
+  );
+
+  // 2. Identify array-based collections dynamically (districts, gameStalls, sponsors, etc.)
+  const arrayFields = Object.entries(innerData).filter(
+    ([key, value]) => !systemKeys.includes(key) && Array.isArray(value) && value.length > 0
+  );
+
+  return (
+    <div className="w-full px-4 pb-6 flex justify-center">
+      <div className="w-full max-w-5xl space-y-8">
+
+        {/* BACK BUTTON */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center text-gray-400 text-sm hover:text-blue-500 transition-colors"
+        >
+          <ChevronLeft size={16} />
+          Back
+        </button>
+
+        {/* DETAILS CONTAINER */}
+        <div className="bg-white border rounded-xl p-6 shadow-sm space-y-8">
+          
+          <h2 className="text-xl font-bold border-b pb-3 text-gray-800">
+            {innerData.Title || innerData.theme || "Event Details"}
+          </h2>
+
+          {/* ================= DYNAMIC TOP LEVEL METADATA ================= */}
+          {simpleFields.length > 0 && (
+            <div className="space-y-4">
+              {simpleFields.map(([key, value]) => (
+                <div key={key} className="grid grid-cols-[280px_1fr] gap-4 items-start text-sm">
+                  <div className="font-bold text-gray-800 capitalize">
+                    {key.replace(/([A-Z])/g, " $1").trim()} :
+                  </div>
+                  <div className="text-gray-600 italic break-words">
+                    {formatValue(key, value)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ================= DYNAMIC COMPLEX ARRAYS / TABLES ================= */}
+          {arrayFields.map(([arrayKey, arrayData]) => {
+            
+            // --- A. SPECIAL STRUCTURAL CASE: DISTRICT BREAKDOWN ---
+            if (arrayKey === "districts") {
+              return (
+                <div key={arrayKey} className="space-y-6 border-t pt-6">
+                  <div className="grid grid-cols-[280px_1fr] gap-4">
+                    <span className="font-bold text-gray-800 text-sm">No. of Different Districts Breakdown :</span>
+                    <div>
+                      {/* Parent Earnings Subtable */}
+                      <div className="grid grid-cols-2 text-sm font-bold text-gray-800 mb-2">
+                        <span>District</span>
+                        <span>Total Amount Earned(Nu)</span>
+                      </div>
+                      {arrayData.map((district, dIndex) => {
+                        const totalEarned = Array.isArray(district.communities)
+                          ? district.communities.reduce((commSum, c) => {
+                              const productSum = Array.isArray(c.products)
+                                ? c.products.reduce((pSum, p) => pSum + Number(p.income || 0), 0)
+                                : 0;
+                              return commSum + productSum;
+                            }, 0)
+                          : 0;
+                        return (
+                          <div key={dIndex} className="grid grid-cols-2 py-1 text-sm text-gray-600 italic capitalize">
+                            <span>{district.districtName || "-"}</span>
+                            <span>{totalEarned}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Deeply Nested Breakdown: District Details */}
+                  {arrayData.map((district, dIndex) => (
+                    <div key={`nested-district-${dIndex}`} className="bg-gray-50/50 border rounded-xl p-4 ml-[280px] space-y-6 text-sm">
+                      <div className="font-bold text-blue-600 uppercase tracking-wider text-xs border-b pb-1">
+                        {district.districtName || "District"} Details
+                      </div>
+
+                      {/* Communities Loop */}
+                      {district.communities?.map((community, cIndex) => (
+                        <div key={cIndex} className="space-y-4 bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+                          
+                          {/* 1. Community Title Name */}
+                          <div className="text-sm font-bold text-gray-800 flex items-center gap-1">
+                            <span className="text-gray-400 font-normal">Community:</span> 
+                            <span className="capitalize">{community.communityName || `Unnamed Community ${cIndex + 1}`}</span>
+                          </div>
+
+                          {/* 2. Nested Products Block */}
+                          {community.products?.length > 0 ? (
+                            <div className="pl-4 border-l-2 border-blue-400 space-y-1">
+                              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Products Offered</div>
+                              <div className="grid grid-cols-2 font-semibold text-gray-700 text-xs mb-1 bg-gray-50 p-1.5 rounded">
+                                <span>Product Name</span>
+                                <span>Income (Nu)</span>
+                              </div>
+                              {community.products.map((p, pIdx) => (
+                                <div key={pIdx} className="grid grid-cols-2 text-sm text-gray-600 italic pl-1.5 py-0.5">
+                                  <span className="capitalize">{p.productName || "-"}</span>
+                                  <span>{p.income != null ? p.income : "-"}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="pl-4 border-l-2 border-gray-200 text-xs italic text-gray-400">No products listed</div>
+                          )}
+
+                          {/* 3. Nested Community Members Block */}
+                          {community.members?.length > 0 ? (
+                            <div className="pl-4 border-l-2 border-emerald-400 space-y-1">
+                              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Community Members</div>
+                              <div className="grid grid-cols-2 font-semibold text-gray-700 text-xs mb-1 bg-gray-50 p-1.5 rounded">
+                                <span>CID</span>
+                                <span>Name</span>
+                              </div>
+                              {community.members.map((m, mIdx) => (
+                                <div key={mIdx} className="grid grid-cols-2 text-sm text-gray-600 italic pl-1.5 py-0.5">
+                                  <span>{m.cid || "-"}</span>
+                                  <span className="capitalize">{m.name || "-"}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="pl-4 border-l-2 border-gray-200 text-xs italic text-gray-400">No members registered</div>
+                          )}
+
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
+            // --- B. GENERIC FALLBACK FOR FLAT OBJECT ARRAYS (Game Stalls, Sponsors, or Anything New) ---
+            const sampleItem = arrayData[0] || {};
+            const itemKeys = Object.keys(sampleItem).filter(k => k !== "_id");
+
+            return (
+              <div key={arrayKey} className="border rounded-xl shadow-sm overflow-hidden bg-white border-t mt-4">
+                <div className="bg-gray-50/70 px-4 py-3 border-b">
+                  <h3 className="text-sm font-bold text-gray-800 capitalize">
+                    {arrayKey.replace(/([A-Z])/g, " $1").trim()}
+                  </h3>
+                </div>
+                <div className="p-4">
+                  {/* Dynamic layout headers displaying (Nu) if field matches monetary targets */}
+                  <div className={`grid grid-cols-${itemKeys.length || 1} border-b pb-2 text-sm font-bold text-gray-800 mb-2 capitalize`}>
+                    {itemKeys.map((itemKey) => {
+                      const isIncomeKey = itemKey.toLowerCase().includes("income") || itemKey.toLowerCase().includes("amount");
+                      return (
+                        <span key={itemKey}>
+                          {itemKey.replace(/([A-Z])/g, " $1").trim()}
+                          {isIncomeKey && " (Nu)"}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {/* Rows */}
+                  <div className="divide-y">
+                    {arrayData.map((rowItem, rowIndex) => (
+                      <div key={rowIndex} className={`grid grid-cols-${itemKeys.length || 1} py-3 text-sm text-gray-600 italic`}>
+                        {itemKeys.map((itemKey) => (
+                          <span key={itemKey} className={typeof rowItem[itemKey] === "string" ? "capitalize" : ""}>
+                            {formatValue(itemKey, rowItem[itemKey])}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DetailEvent;
