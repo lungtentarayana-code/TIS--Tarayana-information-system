@@ -46,14 +46,23 @@ exports.register = async (req, res) => {
       throw err; // other errors
     }
 
-    // Send password via email
-    await sendEmail(email, roleName, randomPassword);
-
-    // Success response
-    res.json({ message: "User registered successfully. Password sent to email." });
+    try {
+      await sendEmail(email, roleName, randomPassword);
+      return res.json({
+        message: "User registered successfully. Password sent to email.",
+        emailSent: true
+      });
+    } catch (emailError) {
+      console.error("User created but email failed:", emailError.message);
+      return res.status(201).json({
+        message: "User created, but the password email could not be sent. Copy the temporary password below.",
+        emailSent: false,
+        temporaryPassword: randomPassword
+      });
+    }
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, message: error.message });
   }
 };
 

@@ -13,6 +13,7 @@ const seedDatabase = require("./config/seed");
 const  defaultEvents = require("./config/seedAnnualEvents");
 
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || "0.0.0.0";
 
 const startServer = async () => {
 
@@ -23,8 +24,8 @@ const startServer = async () => {
     await seedDatabase();
     await  defaultEvents ();
 
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    app.listen(PORT, HOST, () => {
+      console.log(`Server running on ${HOST}:${PORT}`);
     });
 
   } catch (error) {

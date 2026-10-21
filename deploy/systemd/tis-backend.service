@@ -1,0 +1,21 @@
+[Unit]
+Description=TIS Tarayana backend
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/tis/backend
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=5000
+EnvironmentFile=/opt/tis/backend/.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

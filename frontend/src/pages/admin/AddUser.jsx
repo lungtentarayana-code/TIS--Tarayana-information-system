@@ -23,6 +23,8 @@ const [roles, setRoles] = useState([]);
 
 const [showError, setShowError] = useState(false);
 const [errorMessage, setErrorMessage] = useState("");
+const [createdPassword, setCreatedPassword] = useState("");
+const [emailSent, setEmailSent] = useState(true);
   
 useEffect(() => {
   const fetchRoles = async () => {
@@ -118,12 +120,11 @@ const filteredRoles = (data.roles || []).filter((r) =>
     });
 
     const data = await res.json();
-    console.log("ROLES FROM BACKEND:", data.roles);
 
     if (!res.ok) {
        setLoading(false);
 
-      setErrorMessage(data.message || "Error creating user");
+      setErrorMessage(data.message || data.error || "Error creating user");
 setShowError(true);
 
 setTimeout(() => {
@@ -132,13 +133,14 @@ setTimeout(() => {
       return;
     }
 
+    setCreatedPassword(data.temporaryPassword || "");
+    setEmailSent(data.emailSent !== false);
     setShowSuccess(true);
-console.log("setshowsuccess")
     setTimeout(() => {
       setShowSuccess(false);
        setLoading(false);
       navigate("/admin/users");
-    }, 2000);
+    }, data.temporaryPassword ? 8000 : 2000);
 
   } catch (err) {
    setLoading(false);
@@ -278,8 +280,15 @@ setTimeout(() => {
               User Added Successfully
             </h2>
             <p className="text-gray-500 mt-2 text-sm">
-              The user has been added.
+              {emailSent
+                ? "The user has been added and the password was emailed."
+                : "The user was created, but the password email was not sent. Copy this temporary password:"}
             </p>
+            {!emailSent && createdPassword && (
+              <p className="mt-3 font-mono text-base font-semibold text-gray-800 bg-gray-100 rounded-lg py-2 px-3">
+                {createdPassword}
+              </p>
+            )}
           </div>
         </div>
       )}
