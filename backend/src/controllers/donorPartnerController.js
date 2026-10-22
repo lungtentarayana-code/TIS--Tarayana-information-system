@@ -99,28 +99,24 @@ exports.deleteDonorPartner = async (req, res) => {
 };
 exports.getDonorPartnerSummary = async (req, res) => {
   try {
-    // Find roles
     const donorRole = await Role.findOne({ roleName: "Donor" });
     const partnerRole = await Role.findOne({ roleName: "Partner" });
 
-    if (!donorRole || !partnerRole) {
-      return res.status(404).json({ message: "Roles not found" });
-    }
-
-    // Fetch data in parallel
     const [donors, partners] = await Promise.all([
-      donorPartner.find({ roleId: donorRole._id }).select("name"),
-      donorPartner.find({ roleId: partnerRole._id }).select("name")
+      donorRole
+        ? donorPartner.find({ roleId: donorRole._id }).select("name").sort({ createdAt: -1 })
+        : [],
+      partnerRole
+        ? donorPartner.find({ roleId: partnerRole._id }).select("name").sort({ createdAt: -1 })
+        : [],
     ]);
 
     return res.json({
       totalDonors: donors.length,
       donors,
-
       totalPartners: partners.length,
-      partners
+      partners,
     });
-
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

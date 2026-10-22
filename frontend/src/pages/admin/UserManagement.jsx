@@ -38,17 +38,9 @@ useEffect(() => {
   setCurrentPage(1);
 }, [activeTab]);
 
-  const [donors, setDonors] = useState([
-    "ADB-Japan Fund for Poverty",
-    "Alstom Foundation",
-    "American Himalayan Foundation",
-  ]);
+  const [donors, setDonors] = useState([]);
 
-  const [partners, setPartners] = useState([
-    "MoH",
-    "MoAF",
-    "NEC",
-  ]);
+  const [partners, setPartners] = useState([]);
 
   const [deleteItem, setDeleteItem] = useState(null);
 
@@ -148,10 +140,8 @@ const fetchUsers = async () => {
 
     if (!res.ok) return;
 
-    // Extract only names
-   setDonors(data.donors);
-setPartners(data.partners);
-
+    setDonors(data.donors || []);
+    setPartners(data.partners || []);
   } catch (err) {
     console.error(err);
   }
@@ -244,12 +234,8 @@ setTimeout(() => {
   return;
 }
 
-      // ✅ Update UI after success
-      if (activeTab === "donors") {
-       fetchDonorPartners();
-      } else {
-      fetchDonorPartners();
-      }
+      setCurrentPage(1);
+      await fetchDonorPartners();
 
        setActionType("add"); // ✅ ADD THIS
 
